@@ -8,28 +8,27 @@ import {
     createInitializeMintInstruction,
     MINT_SIZE,
 } from "@solana/spl-token"; // IGNORE THESE ERRORS IF ANY
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-
-const { PublicKey, SystemProgram } = anchor.web3;
 
 describe("lwt_token", () => {
     // Configure the client to use the local cluster.
     anchor.setProvider(anchor.Provider.env());
     const program = anchor.workspace.LwtToken as Program<LwtToken>;
 
-    it("Is initialized!", async () => {
+    const mintKey: anchor.web3.Keypair = anchor.web3.Keypair.generate();
+    const mint_amt: anchor.BN = new anchor.BN(10000);
+    const burn_amt: anchor.BN = new anchor.BN(5000);
+    let LWTTokenAccount = null;
+
+    it("Mints 10000 LWT Tokens", async () => {
         // Add your test here.
 
-        const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey(
-            "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
-        );
         const lamports: number =
             await program.provider.connection.getMinimumBalanceForRentExemption(
                 MINT_SIZE
             );
 
-        const mintKey: anchor.web3.Keypair = anchor.web3.Keypair.generate();
-        const LWTTokenAccount = await getAssociatedTokenAddress(
+
+        LWTTokenAccount = await getAssociatedTokenAddress(
             mintKey.publicKey,
             program.provider.wallet.publicKey
         );
@@ -62,19 +61,35 @@ describe("lwt_token", () => {
         );
 
         console.log("Account: ", res);
+        console.log("Amount: ", mint_amt);
         console.log("Mint key: ", mintKey.publicKey.toString());
         console.log("User: ", program.provider.wallet.publicKey.toString());
 
-        const tx = await program.rpc.mintLwt(new anchor.BN(10000),
+        const tx = await program.rpc.mintLwt(mint_amt,
             {
                 accounts: {
                     mintAuthority: program.provider.wallet.publicKey,
                     mint: mintKey.publicKey,
-                    tokenAccount: LWTTokenAccount,
+                    to: LWTTokenAccount,
                     tokenProgram: TOKEN_PROGRAM_ID,
-                    tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
                     payer: program.provider.wallet.publicKey,
-                    systemProgram: SystemProgram.programId,
+                    rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                },
+            },
+        );
+        console.log("Your transaction signature", tx);
+    });
+
+    it("Burns 5000 LWT Tokens", async () => {
+        console.log("LWT Account: ", LWTTokenAccount.toBase58());
+
+        const tx = await program.rpc.burnLwt(burn_amt,
+            {
+                accounts: {
+                    mintAuthority: program.provider.wallet.publicKey,
+                    mint: mintKey.publicKey,
+                    from: LWTTokenAccount,
+                    tokenProgram: TOKEN_PROGRAM_ID,
                     rent: anchor.web3.SYSVAR_RENT_PUBKEY,
                 },
             },
